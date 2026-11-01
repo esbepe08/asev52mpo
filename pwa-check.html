@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>فحص التثبيت والاتصال — Arabic Scrabble</title>
+<meta name="robots" content="noindex">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{color-scheme:light dark;--bg:#fbf6ea;--fg:#2b1a10;--card:#fff;--line:#d9c9a8;--ok:#1d7a3e;--warn:#9a6200;--bad:#b3261e;--acc:#8a5a1f}
+@media(prefers-color-scheme:dark){:root{--bg:#1e140d;--fg:#f6ecd2;--card:#2b1a10;--line:#5a4126;--ok:#6ee09a;--warn:#f0b24a;--bad:#ff8a8a;--acc:#d4af37}}
+*{box-sizing:border-box}body{margin:0;padding:max(14px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom));background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,"Segoe UI",Tahoma,sans-serif}
+main{max-width:640px;margin:0 auto;display:grid;gap:12px}h1{margin:0;font-size:1.3rem}p{margin:0}.sub{opacity:.8;font-size:.9rem}
+.row{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:start;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.st{font-weight:700;min-width:4.2em}.ok .st{color:var(--ok)}.warn .st{color:var(--warn)}.bad .st{color:var(--bad)}
+.row b{display:block}.row small{display:block;opacity:.8;grid-column:2;word-break:break-word}.row .fix{grid-column:2;font-size:.9rem}
+.tech{font:.75rem ui-monospace,monospace;direction:ltr;text-align:left;opacity:.75}
+button{font:inherit;min-height:44px;padding:0 1.1em;border-radius:10px;border:1px solid var(--acc);background:transparent;color:var(--fg);cursor:pointer}button:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.bar{display:flex;flex-wrap:wrap;gap:8px}a{color:var(--acc)}
+</style>
+</head>
+<body>
+<main>
+<h1>فحص التثبيت والاتصال</h1>
+<p class="sub">يفحص هذا الجهاز: هل يمكن تثبيت اللعبة؟ وهل يعمل اللعب عبر الإنترنت؟ لا يُرسل شيئًا إلى أي جهة سوى طلب فحص صحة مشروعك في Supabase.</p>
+<div class="bar"><button id="again" type="button">أعد الفحص</button><button id="copy" type="button">نسخ التقرير</button><button id="install" type="button" hidden>تثبيت التطبيق</button><a href="./">الرجوع إلى اللعبة</a></div>
+<div id="out" role="status" aria-live="polite"></div>
+</main>
+<script>
+(() => {
+const out = document.getElementById('out'), rows = [];
+let deferred = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; document.getElementById('install').hidden = false; });
+const ua = navigator.userAgent, iOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function add(level, title, note, fix, tech) { rows.push({ level, title, note, fix, tech }); }
+const LBL = { ok: '✔ سليم', warn: '⚠ تنبيه', bad: '✖ مشكلة' };
+function paint() {
+  out.innerHTML = rows.map(r => `<div class="row ${r.level}"><span class="st">${LBL[r.level]}</span><b>${esc(r.title)}</b>${r.note ? `<small>${esc(r.note)}</small>` : ''}${r.fix ? `<span class="fix">${esc(r.fix)}</span>` : ''}${r.tech ? `<small class="tech">${esc(r.tech)}</small>` : ''}</div>`).join('');
+}
+const get = async (u, o) => { const c = new AbortController(), t = setTimeout(() => c.abort(), 8000); try { return await fetch(u, { cache: 'no-store', signal: c.signal, ...o }); } finally { clearTimeout(t); } };
+
+async function run() {
+  rows.length = 0; out.setAttribute('aria-busy', 'true');
+  // 1. secure context
+  if (window.isSecureContext) add('ok', 'اتصال آمن (HTTPS)', location.protocol + '//' + location.host);
+  else add('bad', 'الصفحة ليست على اتصال آمن', 'التثبيت وعمل الوضع دون إنترنت يتطلبان HTTPS (أو localhost).', 'افتح الموقع عبر رابط https.');
+  // 2. display mode
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  add(standalone ? 'ok' : 'warn', standalone ? 'اللعبة تعمل كتطبيق مثبّت' : 'اللعبة تعمل داخل المتصفح (غير مثبّتة)', standalone ? '' : 'هذا طبيعي إن لم تثبّتها بعد.',
+    standalone ? '' : iOS ? 'في iPhone/iPad: Safari ← مشاركة ← إضافة إلى الشاشة الرئيسية. لا يعرض iOS رسالة تثبيت تلقائية.' : (deferred ? 'اضغط «تثبيت التطبيق» أعلاه.' : 'من قائمة المتصفح اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».'));
+  // 3. manifest
+  try {
+    const link = document.querySelector('link[rel=manifest]'), r = await get(link.href);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const m = await r.json(), miss = ['name', 'short_name', 'start_url', 'display', 'icons'].filter(k => !m[k]);
+    add(miss.length ? 'bad' : 'ok', miss.length ? 'ملف manifest ناقص' : 'ملف manifest سليم', miss.length ? 'ينقصه: ' + miss.join(', ') : `${m.name} · العرض: ${m.display}`);
+    const bad = [];
+    for (const i of m.icons || []) { try { const x = await get(new URL(i.src, link.href)); if (!x.ok) bad.push(i.src + ' (' + x.status + ')'); } catch { bad.push(i.src); } }
+    const has = (s, p) => (m.icons || []).some(i => i.sizes === s && i.purpose === p);
+    add(bad.length ? 'bad' : (has('192x192', 'any') && has('512x512', 'any') && has('512x512', 'maskable') ? 'ok' : 'warn'), 'أيقونات التطبيق', bad.length ? 'لا تُحمَّل: ' + bad.join(', ') : `${(m.icons || []).length} أيقونة، كلها تُحمَّل`, has('192x192', 'any') && has('512x512', 'any') ? '' : 'ينقص حجم 192 أو 512 (any) لعرض شرط التثبيت.');
+  } catch (e) { add('bad', 'تعذّر قراءة manifest', '', 'تأكد أن manifest.webmanifest منشور بجانب index.html.', String(e)); }
+  // 4. service worker
+  if (!('serviceWorker' in navigator)) add('bad', 'المتصفح لا يدعم service worker', 'لن تعمل اللعبة دون إنترنت ولن يمكن تثبيتها كاملةً.');
+  else {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration('./');
+      if (!reg) add('warn', 'لا يوجد service worker مسجّل بعد', '', 'افتح اللعبة نفسها مرة واحدة على اتصال جيد ثم أعد الفحص.');
+      else {
+        const w = reg.active || reg.waiting || reg.installing, ctl = !!navigator.serviceWorker.controller;
+        add(reg.active ? 'ok' : 'warn', 'service worker: ' + (w ? w.state : '؟'), `النطاق: ${new URL(reg.scope).pathname} · ${ctl ? 'يتحكم بهذه الصفحة' : 'لا يتحكم بهذه الصفحة بعد (أعد التحميل)'}`);
+        if (reg.waiting) add('warn', 'يوجد إصدار أحدث ينتظر التفعيل', '', 'أغلق كل نوافذ اللعبة ثم افتحها، أو اضغط «تحديث الآن» داخل اللعبة.');
+      }
+      const names = (await caches.keys()).filter(k => k.startsWith('arabic-scrabble-'));
+      const sw = await (await get('sw.js')).text(), ver = (/const VERSION = '([^']+)'/.exec(sw) || [])[1];
+      const shell = names.find(n => n.startsWith('arabic-scrabble-shell-'));
+      let n = 0; if (shell) n = (await (await caches.open(shell)).keys()).length;
+      add(shell ? (ver && shell.endsWith(ver) ? 'ok' : 'warn') : 'warn', shell ? `ملفات اللعبة محفوظة للعمل دون إنترنت (${n} ملفًا)` : 'ملفات اللعبة غير محفوظة بعد', shell ? (ver && shell.endsWith(ver) ? 'الإصدار الحالي: ' + ver : `المحفوظ ${shell.replace('arabic-scrabble-shell-', '')} والمنشور ${ver || '؟'} — سيتحدّث عند التحديث`) : '', shell ? '' : 'افتح اللعبة مرة على اتصال جيد حتى يكتمل التحميل.');
+    } catch (e) { add('warn', 'تعذّر فحص التخزين المحلي', '', '', String(e)); }
+  }
+  // 5. storage
+  try {
+    if (navigator.storage?.estimate) { const { usage, quota } = await navigator.storage.estimate(); const p = navigator.storage.persisted ? await navigator.storage.persisted() : null;
+      add(p === false && iOS ? 'warn' : 'ok', 'مساحة التخزين', `${(usage / 1048576).toFixed(1)} م.ب من ${(quota / 1048576).toFixed(0)} م.ب${p === null ? '' : p ? ' · محمية من الحذف' : ' · قد يحذفها المتصفح عند ضيق المساحة'}`); }
+  } catch { /* optional */ }
+  // 6. online play
+  try {
+    const { ONLINE_ENV } = await import('./js/online/env.js');
+    if (!ONLINE_ENV.url || !ONLINE_ENV.anonKey) add('warn', 'اللعب عبر الإنترنت غير مُفعّل', 'لم تُضبط SUPABASE_URL و SUPABASE_ANON_KEY عند النشر.', 'أضفهما في Vercel ← Settings ← Environment Variables ثم أعد النشر. اللعب المحلي لا يتأثر.');
+    else {
+      const host = new URL(ONLINE_ENV.url).host;
+      add('ok', 'إعدادات اللعب عبر الإنترنت موجودة', host);
+      try {
+        const r = await get(ONLINE_ENV.url.replace(/\/$/, '') + '/auth/v1/health', { headers: { apikey: ONLINE_ENV.anonKey } });
+        add(r.ok ? 'ok' : r.status === 401 ? 'bad' : 'warn', r.ok ? 'مشروع Supabase يستجيب' : r.status === 401 ? 'المفتاح العام (SUPABASE_ANON_KEY) مرفوض' : 'مشروع Supabase أجاب بخطأ', 'HTTP ' + r.status, r.ok ? '' : r.status === 401 ? 'انسخ المفتاح العام من Project Settings ← API ثم أعد النشر.' : 'تأكد أن المشروع غير متوقف (Paused).');
+        if (r.ok) {
+          const f = await get(ONLINE_ENV.url.replace(/\/$/, '') + '/functions/v1/eas-game', { method: 'OPTIONS' }).catch(e => ({ ok: false, status: 0, e }));
+          add(f.status === 404 ? 'bad' : f.status === 0 ? 'warn' : 'ok', f.status === 404 ? 'الدالة eas-game غير منشورة' : f.status === 0 ? 'تعذّر الوصول إلى الدالة eas-game' : 'الدالة eas-game موجودة', 'HTTP ' + f.status, f.status === 404 ? 'انشرها: supabase functions deploy eas-game' : f.status === 0 ? 'قد يكون السبب الشبكة أو قيمة ALLOWED_ORIGIN.' : '');
+        }
+      } catch (e) { add('bad', 'تعذّر الوصول إلى Supabase', host, 'تحقق من الإنترنت ومن رابط المشروع ومن أنه غير متوقف.', String(e)); }
+    }
+  } catch (e) { add('warn', 'تعذّر قراءة إعدادات الاتصال', '', '', String(e)); }
+  add(navigator.onLine ? 'ok' : 'warn', navigator.onLine ? 'الجهاز متصل بالإنترنت' : 'الجهاز غير متصل بالإنترنت');
+  out.removeAttribute('aria-busy'); paint();
+}
+document.getElementById('again').onclick = run;
+document.getElementById('install').onclick = async () => { if (!deferred) return; deferred.prompt(); await deferred.userChoice.catch(() => {}); deferred = null; document.getElementById('install').hidden = true; };
+document.getElementById('copy').onclick = async e => {
+  const t = rows.map(r => `[${r.level}] ${r.title}${r.note ? ' — ' + r.note : ''}${r.tech ? ' (' + r.tech + ')' : ''}`).join('\n') + '\n' + ua;
+  try { await navigator.clipboard.writeText(t); e.target.textContent = 'تم النسخ ✓'; } catch { const a = Object.assign(document.createElement('textarea'), { value: t }); document.body.append(a); a.select(); try { document.execCommand('copy'); e.target.textContent = 'تم النسخ ✓'; } catch { e.target.textContent = 'تعذّر النسخ'; } a.remove(); }
+  setTimeout(() => { e.target.textContent = 'نسخ التقرير'; }, 1600);
+};
+run();
+})();
+</script>
+</body>
+</html>

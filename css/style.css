@@ -1,0 +1,426 @@
+/* Layout + component styles. Every colour comes from a theme token (css/themes.css); sizes never depend on the theme.
+   One bundled font set for every device: Amiri (Arabic) + Tinos (Latin, digits, punctuation). No system fonts are used, so desktop and mobile look identical. */
+@font-face{font-family:'ScrabbleMix';font-weight:400;font-display:swap;
+ src:url('../assets/fonts/Amiri-Regular.woff2') format('woff2');
+ unicode-range:U+0600-06FF,U+0750-077F,U+08A0-08FF,U+FB50-FDFF,U+FE70-FEFF}
+@font-face{font-family:'ScrabbleMix';font-weight:700;font-display:swap;
+ src:url('../assets/fonts/Amiri-Bold.woff2') format('woff2');
+ unicode-range:U+0600-06FF,U+0750-077F,U+08A0-08FF,U+FB50-FDFF,U+FE70-FEFF}
+@font-face{font-family:'ScrabbleMix';font-weight:400;font-display:swap;
+ src:url('../assets/fonts/Tinos-Regular.woff2') format('woff2');
+ unicode-range:U+0000-05FF,U+2000-206F,U+20A0-20CF}
+@font-face{font-family:'ScrabbleMix';font-weight:700;font-display:swap;
+ src:url('../assets/fonts/Tinos-Bold.woff2') format('woff2');
+ unicode-range:U+0000-05FF,U+2000-206F,U+20A0-20CF}
+:root{--font:'ScrabbleMix',serif;
+/* Fixed layout constants of the default responsive layout (no longer user-adjustable; direct manipulation lives in Floating Workspace) */
+--board-scale:1;--rack-scale:1;--btn-scale:1;--btn-gap:6px;--ctrl-cols:3;--hist-scale:1;--hist-hs:1;--hist-w:1}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{font-family:var(--font);color:var(--text-main);min-height:100dvh;padding:max(8px,env(safe-area-inset-top)) 8px max(8px,env(safe-area-inset-bottom));
+background:radial-gradient(ellipse at top,var(--bg-page-1),var(--bg-page-2) 70%) fixed;font-size:18px;transition:color .2s ease}
+.app{max-width:calc(760px*max(1,var(--board-scale)));margin:auto;display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+.bag{margin-top:8px;text-align:center;font-size:1rem;min-height:1.2em}
+/* Info bar under the board (mode · bag count). Hidden by default (Settings → التخطيط → شريط معلومات اللوح): it leaves the layout, so the board can use the room, but stays in the page as
+   text for screen readers. --bagx / --bagxl are the vertical room the bar used to take in the size formulas below (wide / short landscape); with the bar hidden they are 0.
+   The numbers add back to the old constants exactly (97 + 28 = 125, 32 + 28 = 60, 9 + 21 = 30, 88 + 28 = 116), so with the bar on nothing changes by a pixel. */
+html{--bagx:28px;--bagxl:21px}
+html:not([data-binfo="on"]){--bagx:0px;--bagxl:0px}
+html:not([data-binfo="on"]) .bag{position:absolute;width:1px;height:1px;min-height:0;margin:0;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.vh{position:absolute;width:1px;height:1px;margin:0;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+/* The bag count rides on the swap button, the one action it limits: muted while swapping is possible, accent when 7 or fewer tiles are left, struck through when swapping is no longer allowed. Hidden when the bar is shown. */
+.bagBadge{position:absolute;inset-block-start:-6px;inset-inline-end:-4px;min-width:1.5em;padding:0 .35em;border-radius:999px;font:700 .72rem/1.5 var(--font);text-align:center;font-variant-numeric:tabular-nums;color:var(--text-main);background:var(--surface-inset);border:1px solid var(--dialog-line);pointer-events:none}
+.bagBadge[data-s="low"],.bagBadge[data-s="stop"]{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
+.bagBadge[data-s="stop"]{text-decoration:line-through}
+html[data-binfo="on"] .bagBadge{display:none}
+.hbag{margin:0 0 6px;font-size:.88rem;opacity:.85;line-height:1.4}
+html[data-binfo="on"] .hbag{display:none}
+.boardWrap{min-width:0;position:relative}
+.board{container-type:inline-size;--lf:4.6cqw;--vf:1.8cqw;display:grid;grid-template:repeat(15,minmax(0,1fr))/repeat(15,minmax(0,1fr));aspect-ratio:1;width:100%;max-width:calc(720px*var(--board-scale));margin-inline:auto;
+padding:1.2%;border-radius:10px;background:linear-gradient(135deg,var(--board-1),var(--board-2));border:3px solid var(--board-line);box-shadow:0 10px 30px #000a,inset 0 0 0 2px var(--board-rim)}
+.sq{position:relative;display:grid;place-items:center;min-width:0;min-height:0;border:1px solid var(--sq-line);font-size:max(7px,2.1cqw);font-weight:700;color:var(--premium-text);line-height:1.05;
+box-shadow:inset 0 1px 0 #fff3,inset 0 -1px 2px #0004;user-select:none;cursor:pointer;transition:background-color .2s ease,border-color .2s ease}
+.sq,.slot,.tile,.btn{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+/* Keyboard focus: a theme-coloured ring plus a contrasting halo, so it stays visible on any square, tile or panel */
+.sq:focus-visible,.slot:focus-visible,.tile:focus-visible,.btn:focus-visible{outline:3px solid var(--focus);outline-offset:1px;z-index:3}
+.sq:focus-visible,.slot:focus-visible,.btn:focus-visible{box-shadow:0 0 0 5px var(--focus-halo)}
+/* Premium squares: letter bonuses are blue (light DL, deep TL), word bonuses are red (light DW, deep TW), star is gold. The printed label is a second, colour-independent cue. */
+.k0{background:var(--sq-empty)}.k1{background:var(--premium-dl)}.k2{background:var(--premium-tl)}.k3{background:var(--premium-dw)}.k4{background:var(--premium-tw)}.k5{background:var(--premium-star);color:var(--premium-star-text)}
+.k5 .pl{font-size:1.25em;gap:0}
+.pl{display:grid;gap:.1em;text-align:center;pointer-events:none}.pl .m{direction:ltr;unicode-bidi:isolate}
+.sq.has{box-shadow:none}.sq.drop,.slot.drop{outline:2px dashed var(--tile-pick-ring);outline-offset:-2px}
+.tile{position:absolute;inset:0;display:grid;place-items:center;border-radius:12%;color:var(--tile-text);font-weight:700;cursor:pointer;
+background:linear-gradient(145deg,var(--tile-1),var(--tile-2));box-shadow:inset 0 1px 0 #fff9,0 0 0 1px var(--tile-edge),0 2px 3px #0007;transition:transform .15s,box-shadow .15s;touch-action:none;-webkit-touch-callout:none}
+.tile b{font-size:var(--lf);line-height:1;font-weight:700}
+.tile i{position:absolute;bottom:3%;left:9%;font-style:normal;font-size:var(--vf);font-weight:700}
+.tile.blank b{color:var(--tile-blank-text)}
+/* Tiles on the board have no glow and no coloured outline: the glow/flicker is only the touch feedback of a tile being picked (.pick below).
+   Their drop shadow is cast by the square (.sq.has::before), so it moves/fades with transform + opacity only (compositor-friendly, no repaint).
+   A pending tile (.cur, placed but not scored yet) is told apart by a golden tint and its lifted shadow (.sq.has.mv), nothing else. */
+.sq .tile{box-shadow:inset 0 1px 0 #fff9,0 0 0 1px var(--tile-edge)}
+.tile.cur{background:linear-gradient(145deg,var(--tile-cur-1),var(--tile-cur-2))}
+.tile.pick{transform:translateY(-7%) scale(1.08);box-shadow:0 0 0 3px var(--tile-pick-ring),0 6px 10px #000a;z-index:2}
+@keyframes blink{50%{box-shadow:0 0 0 3px var(--tile-pick-blink),0 0 16px var(--tile-pick-blink),0 6px 10px #000a}}
+.tile.pick{animation:blink 1s ease-in-out infinite}
+/* Swap selection: tinted tile, raised, ringed, and marked with a check (not colour alone) */
+.tile.swp{color:var(--tile-swap-text);background:linear-gradient(145deg,var(--tile-swap-1),var(--tile-swap-2));transform:translateY(-6%);box-shadow:0 0 0 3px var(--tile-swap-ring),0 6px 10px #0009}
+.tile.swp b{color:var(--tile-swap-text)}
+.tile.swp::after{content:"✓";position:absolute;top:2%;right:9%;font-size:calc(var(--vf)*1.5);line-height:1;font-weight:700}
+.tile.land{animation:land .3s ease-out}
+.tile.dim{cursor:not-allowed}
+/* touch drag (js/touchdrag.js): the source dims while a copy follows the finger */
+.tile.dragging{opacity:.35}
+.tile.dragGhost{position:fixed;inset:auto;left:0;top:0;margin:0;z-index:9999;pointer-events:none;transition:none;animation:none;will-change:transform;box-shadow:inset 0 1px 0 #fff9,0 0 0 2px var(--tile-pick-ring),0 10px 18px #000b}
+@keyframes land{0%{transform:scale(1.35)}60%{transform:scale(.94)}100%{transform:scale(1)}}
+/* Dynamic cast shadow (container units: it scales with the board).
+   resting = tight and dark; pending (.mv, not scored yet) = tile hovers: shadow shifts down, softer; landing (.fall) = shadow converges from far/faint to its state. */
+.sq.has{z-index:1}                               /* own stacking level, so a shadow is never painted under the next empty square */
+.sq.has.up,.sq.has:focus-within{z-index:3}       /* a raised (picked / just placed) or focused tile stays above its neighbours */
+.sq.has::before{content:"";position:absolute;inset:0;border-radius:12%;pointer-events:none;box-shadow:0 max(1px,.35cqw) max(2px,.75cqw) var(--tile-cast,#000b);transition:transform .2s ease-out,opacity .2s ease-out}
+.sq.has.mv::before{transform:translateY(max(1px,.55cqw)) scale(1.04);opacity:.65}
+@media(hover:hover){.sq.has.mv:hover::before{transform:translateY(max(2px,.9cqw)) scale(1.07);opacity:.5}}   /* the pending tile lifts a little more under the pointer (see .tile:hover), so its shadow follows */
+.sq.has.fall::before{animation:cast .3s ease-out}
+@keyframes cast{from{transform:translateY(1.3cqw) scale(1.3);opacity:.3}}
+/* Word flash (js/flash.js): the squares of the words just scored light up one after another, in reading order (--wd is each square's delay).
+   One opacity pulse on the square's ::after; the square rises one level while it plays, so a neighbour's shadow never cuts the ring. */
+.sq.wf{z-index:3}
+.sq.wf::after{content:"";position:absolute;inset:0;border-radius:12%;pointer-events:none;background:color-mix(in srgb,var(--accent) 38%,transparent);box-shadow:0 0 0 max(1px,.28cqw) var(--accent),0 0 1.4cqw var(--accent);opacity:0;animation:wflash .8s ease-out var(--wd,0s) both}
+@keyframes wflash{0%{opacity:0}25%{opacity:1}100%{opacity:0}}
+@media(hover:hover){.tile:not(.dim):hover{transform:translateY(-5%)}}
+.side{display:grid;gap:10px;align-content:start;min-width:0}
+#toast{min-height:2.4rem;display:grid;place-items:center;text-align:center;border-radius:8px;padding:2px 10px;font-weight:700;transition:background .3s}
+#toast.ok{background:var(--ok-bg);color:var(--ok-text)}#toast.bad{background:var(--bad-bg);color:var(--bad-text)}#toast.bad::before{content:"⚠ "}
+.shake{animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.ctrls{display:grid;grid-template-columns:repeat(var(--ctrl-cols),1fr);gap:var(--btn-gap)}.ctrls .wide{grid-column:1/-1}
+.btn{min-height:calc(46px*var(--btn-scale));border:1px solid var(--btn-line);border-radius:8px;font:700 calc(1rem*var(--btn-scale)) var(--font);color:var(--btn-text);cursor:pointer;padding:4px 6px;
+background:linear-gradient(var(--btn-1),var(--btn-2));box-shadow:inset 0 1px 0 #fff3,0 2px 4px #0006;transition:color .2s ease,border-color .2s ease}
+.btn:hover:not(:disabled){filter:brightness(1.15)}.btn:disabled{opacity:.45;cursor:not-allowed;border-style:dashed}
+.btn.main,.btn.yes{background:linear-gradient(var(--btn-main-1),var(--btn-main-2));color:var(--btn-main-text)}.btn.danger{background:linear-gradient(var(--btn-danger-1),var(--btn-danger-2));color:var(--btn-danger-text)}
+.players{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+@media(min-width:720px){.players{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.panel{container-type:inline-size;min-width:0;padding:8px 10px;border-radius:12px;background:var(--panel-bg);border:2px solid transparent;transition:border-color .3s,box-shadow .3s,color .2s ease}
+.panel.on{border-color:var(--accent);box-shadow:0 0 12px var(--accent);box-shadow:0 0 14px color-mix(in srgb,var(--accent) 45%,transparent)}
+.phead{display:grid;grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"n t s";align-items:center;gap:0 10px;margin-bottom:6px}
+.pname{grid-area:n}.ptime{grid-area:t}.pscore{grid-area:s}
+.pname{font-size:1.1rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Whose turn: a small green dot before the name, a fixed size (so it can never change a rack or a panel), breathing softly while it is that player's turn.
+   Opacity and transform only; with reduced motion it is simply a still dot. */
+.panel.on .pname::before{content:"";display:inline-block;width:.5em;height:.5em;margin-inline-end:.45em;border-radius:50%;background:var(--turn-dot);vertical-align:.1em;animation:turnDot 2.4s ease-in-out infinite}
+@keyframes turnDot{50%{opacity:.4;transform:scale(.72)}}
+/* The name is a small control (js/nameedit.js): press and hold (a line fills under it), double-click or Enter edits it in place. The field takes over the label's exact row. */
+.pname{position:relative;border-radius:6px;cursor:text;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.pname:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.pname::after{content:"";position:absolute;inset-inline:0;bottom:0;height:2px;border-radius:1px;background:var(--accent);opacity:0;transform:scaleX(0);transform-origin:100% 50%}
+.pname.pressing::after{opacity:1;transform:scaleX(1);animation:nameHold .5s linear}
+@keyframes nameHold{from{transform:scaleX(0)}}
+.pnameEdit{grid-area:n;min-width:0;width:100%;margin:0;padding:0 .35em;font-family:inherit;font-weight:700;line-height:1;color:var(--text-main);caret-color:var(--accent);background:var(--surface-inset);border:0;border-bottom:2px solid var(--accent);border-radius:6px 6px 0 0}
+.pnameEdit:focus{outline:2px solid var(--focus);outline-offset:1px}
+.pnameEdit::placeholder{color:var(--text-main);opacity:.45;font-weight:400}
+.pscore{font-size:1.3rem;color:var(--accent-text);font-weight:700}.pscore.pop{animation:pop .5s}
+@keyframes pop{40%{transform:scale(1.4)}}
+.ptime{font:700 1.15rem var(--font);font-variant-numeric:tabular-nums;direction:ltr;opacity:.75}
+.panel.on .ptime{opacity:1}.ptime.wait{opacity:.45}.ptime.low{color:var(--time-low)}.ptime.crit{color:var(--time-crit);animation:pulse 1s infinite}.ptime.out{animation:none}
+@keyframes pulse{50%{opacity:.45}}
+.rack{container-type:inline-size;--lf:8.6cqw;--vf:3.2cqw;width:calc(100%*var(--rack-scale));max-width:440px;margin-inline:auto;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:min(1.2cqw,5.28px);padding:min(1.8cqw,7.92px);border-radius:10px;transition:opacity .3s;
+background:linear-gradient(var(--rack-1),var(--rack-2));box-shadow:inset 0 2px 8px #000a}
+/* Local play, Settings → عرض الرفوف → رفّ صاحب الدور فقط. The tray keeps its exact box (the slots and the padding remain), only the tiles are
+   hidden, and one line in the middle says why: nothing around it moves, and nothing of the waiting player's rack can be read beforehand. */
+.rack[data-rack-hidden="true"]{position:relative}
+.rack[data-rack-hidden="true"] .tile{visibility:hidden}
+.rack[data-rack-hidden="true"]::after{content:"رفّ مخفي — يظهر في دور صاحبه";position:absolute;inset:0;display:grid;place-items:center;padding:0 6%;
+text-align:center;font-size:clamp(.7rem,2.6cqw,.95rem);font-weight:700;color:var(--text-main);opacity:.72;pointer-events:none}
+.panel:not(.on) .rack{opacity:.6}
+.slot{position:relative;aspect-ratio:1;border-radius:10%;background:var(--slot-bg);box-shadow:inset 0 1px 4px #0008;min-width:0}
+/* history */
+.hist{display:flex;flex-direction:column;height:min(calc(360px*var(--hist-hs)),calc(60dvh*var(--hist-hs)));padding:8px 10px;border-radius:12px;background:var(--panel-bg);border:2px solid var(--panel-line);min-width:0;transition:border-color .2s ease,color .2s ease}
+.hist h2{margin:0 0 8px;font-size:calc(1.5rem*var(--hist-scale));color:var(--accent-text);padding-inline-end:4.2rem;min-height:22px}   /* room for the toggle, which sits over the corner */
+/* History toggle. The button is absolutely positioned inside .hist (out of flow), so it never affects layout.
+   Hidden state: the .hist box keeps its exact size, grid area and border width; only its surface and contents become invisible. */
+.hist{position:relative}
+.histToggle{position:absolute;top:6px;inset-inline-end:6px;z-index:1;width:4rem;min-height:24px;padding:1px 0;border-radius:999px;cursor:pointer;text-align:center;
+font:700 .72rem var(--font);color:var(--btn-text);background:linear-gradient(var(--btn-1),var(--btn-2));border:1px solid var(--btn-line);box-shadow:inset 0 1px 0 #fff3,0 1px 3px #0006}
+.histToggle:hover{filter:brightness(1.15)}
+.histToggle:focus-visible{outline:3px solid var(--focus);outline-offset:1px;box-shadow:0 0 0 5px var(--focus-halo)}
+.hist.history-hidden{background:transparent;border-color:transparent;pointer-events:none}
+.hist.history-hidden>:not(.histToggle){visibility:hidden}
+.hist.history-hidden .histToggle{pointer-events:auto}
+.hl{flex:1;min-height:0;overflow:auto;list-style:none;margin:0;padding:0;display:grid;gap:6px;align-content:start;overscroll-behavior:contain}
+.hi{padding:6px 8px;border-radius:8px;background:var(--surface-inset);border-inline-start:4px solid var(--player-1);font-size:calc(1.2rem*var(--hist-scale));line-height:1.5}
+.hi.p1{border-color:var(--player-2)}.hi.void{opacity:.75}.hi.void .chip{text-decoration:line-through}
+.hh{display:flex;align-items:center;gap:8px;margin-bottom:4px}.hh .hp{margin-inline-start:auto;color:var(--accent-text);font-size:calc(1.5rem*var(--hist-scale))}
+.hn{opacity:.8;font-size:calc(1rem*var(--hist-scale));min-width:1.8em}
+.chip{display:inline-block;padding:2px 10px;border-radius:999px;background:var(--chip-bg);border:1px solid var(--chip-line)}.chip b{color:var(--accent-text)}.chip.bingo{border-color:var(--verdict-ok);color:var(--verdict-ok)}
+.jw{display:flex;flex-wrap:wrap;gap:6px}
+.hj{margin-top:6px;font-size:calc(1rem*var(--hist-scale))}.hj.ok{color:var(--verdict-ok)}.hj.void{color:var(--verdict-bad)}
+.hempty{opacity:.75;text-align:center;padding:12px;font-size:calc(1.1rem*var(--hist-scale))}
+.hbest{margin:8px 0 0;font-size:calc(1.1rem*var(--hist-scale));min-height:1.2em}
+dialog{border:2px solid var(--dialog-line);border-radius:14px;background:var(--dialog-bg);color:var(--text-main);padding:18px;width:min(92vw,420px);font-family:var(--font);transition:background-color .2s ease,color .2s ease,border-color .2s ease}
+dialog[open]{animation:dlg .25s ease-out}dialog::backdrop{background:var(--backdrop)}
+@keyframes dlg{from{opacity:0;transform:translateY(12px) scale(.96)}}
+dialog h2{margin:0 0 8px;color:var(--accent-text)}dialog h2:focus{outline:none}dialog p,#dM{white-space:pre-line;line-height:1.7;margin:0 0 14px}
+/* End-of-game result: everything centred */
+#dlg.result{text-align:center}
+.res p{margin:0}.resWhy{opacity:.85;font-size:1rem}
+.resWin{display:flex;align-items:center;justify-content:center;gap:.4em;margin:6px 0 12px!important;font-size:1.5rem;font-weight:700;color:var(--accent-text)}
+.resWin .ic{width:1.3em;height:1.3em}.resWin.draw{color:var(--text-main)}
+.resCards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.resCard{display:grid;justify-items:center;gap:0;padding:10px 6px;border-radius:10px;background:var(--surface-inset);border:2px solid var(--panel-line)}
+.resCard.win{border-color:var(--accent)}
+.resName{font-weight:700;font-size:1rem}.resScore{font-size:2.2rem;line-height:1.2;color:var(--accent-text);font-variant-numeric:tabular-nums}
+.resNote{font-size:.85rem;opacity:.85;line-height:1.5}.resSub{opacity:.8;font-size:.9em}.num{direction:ltr;unicode-bidi:isolate}
+@media(max-height:559px){   /* short landscape: keep the whole announcement on screen without scrolling */
+#dlg.result{padding:10px 18px}#dlg.result h2{font-size:1.25rem;margin-bottom:0}
+.resWhy{font-size:.9rem;line-height:1.4}.resWin{margin:2px 0 8px!important;font-size:1.25rem}
+.resCards{margin-bottom:8px}.resCard{padding:4px 6px}.resScore{font-size:1.6rem;line-height:1.1}.resNote{font-size:.78rem;line-height:1.35}
+#dlg.result .dlgRow,#dlg.result form .btn{min-height:38px}
+}
+dialog form{display:flex;gap:8px}dialog form .btn{flex:1}.dlgRow{margin-top:10px}
+/* ===== Incoming undo request (online): a banner that is impossible to miss, independent of every dialog ===== */
+.undoReq{position:fixed;inset-block-start:max(10px,env(safe-area-inset-top));inset-inline:0;z-index:56;display:grid;place-items:center;padding:0 10px;pointer-events:none}
+.undoReq[hidden]{display:none}
+.urCard{pointer-events:auto;width:min(94vw,470px);display:grid;gap:8px;padding:12px 14px;border-radius:14px;background:var(--dialog-bg);border:2px solid var(--accent);
+box-shadow:0 16px 44px #000c;text-align:center;animation:urIn .25s ease-out}
+.urKick{margin:0;font-size:.7rem;letter-spacing:.16em;font-weight:700;color:var(--accent-text)}
+.urCard h2{margin:0;font-size:1.05rem;line-height:1.4;color:var(--text-main)}
+.urM{margin:0;font-size:.84rem;line-height:1.5;opacity:.86}
+.urRow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.urRow .btn{min-height:44px}
+@keyframes urIn{from{opacity:0;transform:translateY(-10px)}}
+@media(prefers-reduced-motion:reduce){.urCard{animation:none}}
+/* ===== Pause (js/pause.js): one full-screen card, impossible to miss, shared by local and online play ===== */
+.pauseOv{position:fixed;inset:0;z-index:55;display:grid;place-items:center;overflow:auto;padding:max(16px,env(safe-area-inset-top)) 14px max(16px,env(safe-area-inset-bottom));
+background:radial-gradient(ellipse at center,#0007 0%,#000b 100%);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+.pauseOv[hidden]{display:none}
+.pauseCard{width:min(92vw,420px);display:grid;justify-items:center;gap:10px;padding:clamp(18px,5vw,28px);border-radius:20px;background:var(--dialog-bg);border:1px solid var(--dialog-line);
+box-shadow:0 24px 70px #000c;text-align:center;animation:pauseCardIn .22s ease-out}
+.pauseGlyph{width:clamp(56px,16vw,76px);height:clamp(56px,16vw,76px);display:grid;place-items:center;border-radius:50%;color:var(--accent);
+background:color-mix(in srgb,var(--accent) 16%,transparent);border:2px solid var(--accent);animation:pauseBreathe 2.4s ease-in-out infinite}
+.pauseGlyph svg{width:52%;height:52%;fill:currentColor}
+.pauseKick{margin:0;font-size:.78rem;letter-spacing:.18em;font-weight:700;color:var(--accent-text);opacity:.9}
+.pauseCard h2{margin:0;font-size:clamp(1.2rem,4.6vw,1.55rem);color:var(--text-main)}
+.pauseM{margin:0;max-width:32ch;font-size:.98rem;line-height:1.7;opacity:.92}
+.pauseClock{margin:0;font:700 1.05rem var(--font);font-variant-numeric:tabular-nums;direction:ltr;color:var(--accent-text)}
+.pauseBtn{width:100%;min-height:52px;margin-top:2px;font-size:1.05rem}
+.pauseHint{margin:0;max-width:34ch;font-size:.82rem;line-height:1.5;opacity:.72}
+@keyframes pauseCardIn{from{opacity:0;transform:translateY(10px) scale(.97)}}
+@keyframes pauseBreathe{50%{transform:scale(.93);opacity:.7}}
+@media(prefers-reduced-motion:reduce){.pauseCard,.pauseGlyph{animation:none}}
+/* ===== First-turn draw (js/draw.js): two cards, one flip each, a single glow on the higher tile ===== */
+.drawOv{position:fixed;inset:0;z-index:57;display:grid;place-items:center;overflow:auto;padding:max(14px,env(safe-area-inset-top)) 12px max(14px,env(safe-area-inset-bottom));
+background:radial-gradient(ellipse at 50% 28%,#0005 0%,#000c 100%);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.drawOv[hidden]{display:none}
+body.drawOn{overflow:hidden}
+.drawCard{width:min(94vw,560px);display:grid;justify-items:center;gap:10px;padding:clamp(16px,4vw,26px);border-radius:20px;background:var(--dialog-bg);border:1px solid var(--dialog-line);
+box-shadow:0 24px 70px #000c;text-align:center;animation:pauseCardIn .24s ease-out}
+.drawKick{margin:0;font-size:.76rem;letter-spacing:.2em;font-weight:700;color:var(--accent-text);opacity:.9}
+.drawCard h2{margin:0;font-size:clamp(1.25rem,4.8vw,1.6rem);color:var(--text-main)}
+.drawM{margin:0;max-width:46ch;font-size:.94rem;line-height:1.65;opacity:.9}
+.drawSeats{display:grid;grid-template-columns:1fr 1fr;gap:clamp(8px,3vw,18px);width:100%;margin-top:2px}
+.drawSeat{display:grid;justify-items:center;align-content:start;gap:7px;padding:10px;border-radius:14px;background:var(--surface-inset);border:1px solid transparent;transition:opacity .25s,border-color .25s}
+.drawSeat.win{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface-inset));box-shadow:0 0 0 1px var(--accent),0 0 26px color-mix(in srgb,var(--accent) 40%,transparent);animation:drawWin .55s ease-out}
+.drawSeat.lose{opacity:.72}
+.drawWho{font-weight:700;font-size:.95rem;line-height:1.3;max-width:100%;overflow-wrap:anywhere}
+.drawTile{position:relative;width:clamp(62px,21vw,92px);aspect-ratio:1;perspective:900px}
+.drawInner{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.85,.3,1)}
+.drawTile[data-state="up"] .drawInner{transform:rotateY(180deg)}
+.drawFace{position:absolute;inset:0;display:grid;place-items:center;border-radius:12%;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.drawBack{background:radial-gradient(circle at 50% 34%,color-mix(in srgb,var(--accent) 24%,transparent) 0%,transparent 58%),linear-gradient(145deg,var(--rack-1),var(--rack-2));
+box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--accent) 50%,transparent),0 6px 14px #0008;font-weight:700;font-size:2rem;color:var(--accent)}
+.drawBack span{opacity:.9;text-shadow:0 1px 2px #0008}
+.drawFront{transform:rotateY(180deg);background:linear-gradient(145deg,var(--tile-1),var(--tile-2));color:var(--tile-text);box-shadow:inset 0 1px 0 #fff9,0 0 0 1px var(--tile-edge),0 6px 14px #0008}
+.drawFront b{font-size:clamp(1.6rem,6vw,2.4rem);line-height:1}
+.drawFront i{position:absolute;bottom:4%;left:8%;font-style:normal;font-size:clamp(.7rem,2.4vw,.95rem);font-weight:700}
+.drawTile.mark::after{content:"✓";position:absolute;top:-7px;inset-inline-end:-7px;width:1.65em;height:1.65em;display:grid;place-items:center;border-radius:50%;
+background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:.85rem;box-shadow:0 2px 6px #0007;animation:drawPop .3s ease-out}
+.drawNote{margin:0;min-height:1.35em;font-size:.78rem;line-height:1.35;opacity:.85}
+.drawBtn{width:100%;min-height:44px;padding:2px 4px;font-size:.86rem}
+.drawResult{margin:2px 0 0;min-height:1.5em;font-weight:700;font-size:1rem;line-height:1.4;color:var(--text-main)}
+.drawResult.win{color:var(--accent-text);animation:drawPop .45s ease-out}
+.drawResult.tie{color:var(--time-low,#e0a030)}
+.drawResult.redo{color:var(--time-low,#e0a030)}
+.drawResult.wait{opacity:.8;font-weight:400}
+.drawHint{margin:0;max-width:46ch;font-size:.76rem;line-height:1.5;opacity:.68}
+@keyframes drawPop{from{opacity:0;transform:translateY(6px) scale(.96)}}
+@keyframes drawWin{from{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 70%,transparent)}}
+@media(max-width:360px){.drawSeats{gap:6px}.drawSeat{padding:8px 4px}}
+@media(prefers-reduced-motion:reduce){.drawInner{transition:none}.drawSeat.win,.drawResult.win,.drawTile.mark::after{animation:none}}
+#sf{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+#sf .btn{display:grid;justify-items:center;align-content:center;min-height:64px;padding:6px 2px;line-height:1.15}
+#sf .btn b{font-size:1.5rem;font-variant-numeric:tabular-nums}#sf .btn span{font-size:.78rem;font-weight:400;opacity:.85}
+#sf .btn[aria-current="true"]{outline:2px solid var(--accent);outline-offset:1px}
+#bf{display:grid;grid-template-columns:repeat(6,1fr)}#bf .btn{font-size:1.4rem;min-height:48px;padding:0}#bf{max-height:60dvh;overflow:auto}
+#mf{flex-direction:column}.modeBtn{display:grid;gap:2px;align-content:center;padding:12px;flex:none}
+.mAr{font-size:1.3rem}.mEn{direction:ltr;font-size:.9rem;font-weight:400}.mDesc{margin-top:4px;white-space:pre-line;font-size:1rem;font-weight:400;line-height:1.5}
+#jB{display:grid;gap:10px;max-height:70dvh;overflow:auto}#jB p{margin:0}
+button,input,textarea,select{font-family:inherit}
+.vrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+/* The grid areas below keep an empty "head" row on purpose: the title lives on the cover, and removing the row would shift the layouts. */
+@media(max-width:420px){body{font-size:16px;padding-inline:4px;overflow-x:hidden}.app{gap:8px}.boardWrap{width:100%}.board{width:min(100%,calc(100vw - 8px))}.side{gap:8px}.ctrls .btn{min-height:calc(44px*var(--btn-scale))}}
+/* Desktop / 16:9: history | board | players+buttons in one screen (phones and portrait tablets keep the single column above) */
+@media(min-width:1000px) and (min-height:560px){
+.app{--A:min(calc(100vw - 16px),1600px);--bo:max(340px,min(calc((100dvh - 97px - var(--bagx))*var(--board-scale)),calc(100vw - 640px),calc(880px*var(--board-scale))));
+--sw:calc((var(--A) - 20px - var(--bo))/2);--hw:max(230px,calc(var(--sw)*.78*var(--hist-w)));
+--bs:max(340px,min(calc((100dvh - 97px - var(--bagx))*var(--board-scale)),calc(var(--A) - 20px - var(--sw) - var(--hw)),calc(880px*var(--board-scale))));
+max-width:1600px;align-items:start;justify-content:center;
+grid-template-columns:var(--sw) var(--bs) var(--hw);grid-template-areas:"head head head" "side board hist"}
+.boardWrap{grid-area:board}.side{grid-area:side}
+.board{width:var(--bs);max-width:none}
+.players{grid-template-columns:minmax(0,1fr)}
+.hist{grid-area:hist;height:calc(100%*min(1,var(--hist-hs)));align-self:start;contain:size}
+}
+/* Tilted phones / short or narrow landscape screens: the board stays pinned on the left at full height, players + buttons sit beside it and the history follows below. */
+@media(orientation:landscape) and (max-width:999px),(orientation:landscape) and (max-height:559px){
+body{padding-inline:max(8px,env(safe-area-inset-left)) max(8px,env(safe-area-inset-right))}
+.app{--lb:max(220px,min(calc((100dvh - 32px - var(--bagx))*var(--board-scale)),calc(100vw - 386px),calc(880px*var(--board-scale))));max-width:none;align-items:start;column-gap:10px;
+grid-template-columns:minmax(0,1fr) var(--lb);grid-template-areas:"head board" "side board" "hist board"}
+.boardWrap{grid-area:board;position:sticky;top:max(8px,env(safe-area-inset-top))}
+.board{width:var(--lb);max-width:none}
+.side{grid-area:side;gap:8px}#toast{min-height:2rem}
+.players{grid-template-columns:minmax(0,1fr)}
+.btn{min-height:calc(40px*var(--btn-scale))}
+.hist{grid-area:hist}
+#bd{width:min(92vw,560px)}#bf{grid-template-columns:repeat(10,1fr)}#bf .btn{min-height:40px}
+}
+@media(orientation:landscape) and (min-width:830px) and (max-width:999px),(orientation:landscape) and (min-width:830px) and (max-height:559px){.players{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* Phones turned sideways (landscape, short): players + buttons on the right | board in the middle | smaller history on the left. Narrower landscape screens keep the two-column layout above. */
+@media(orientation:landscape) and (max-height:559px) and (min-width:720px){
+body{padding-top:max(4px,env(safe-area-inset-top));padding-bottom:max(4px,env(safe-area-inset-bottom))}
+.app{--sw:clamp(212px,27vw,300px);--hw:calc(clamp(150px,22vw,260px)*var(--hist-w));justify-content:center;
+--lb:max(220px,min(calc((100dvh - 9px - var(--bagxl) - max(0px,env(safe-area-inset-top) - 4px) - max(0px,env(safe-area-inset-bottom) - 4px))*var(--board-scale)),calc(100vw - 20px - max(8px,env(safe-area-inset-left)) - max(8px,env(safe-area-inset-right)) - var(--sw) - var(--hw)),calc(880px*var(--board-scale))));
+grid-template-columns:minmax(0,var(--sw)) var(--lb) minmax(0,var(--hw));grid-template-rows:auto minmax(0,1fr);
+grid-template-areas:"side board head" "side board hist"}
+.boardWrap{top:max(4px,env(safe-area-inset-top))}
+.bag{margin-top:2px;font-size:.9rem;line-height:1.3;min-height:0}
+.side{align-self:stretch;grid-template-rows:auto auto minmax(0,1fr)}.ctrls{align-self:end}
+.players{grid-template-columns:minmax(0,1fr)}
+.hist{height:calc(100%*min(1,var(--hist-hs)));align-self:start;contain:size;padding:6px 8px}
+.hist h2{font-size:calc(1.2rem*var(--hist-scale));margin-bottom:6px}
+.hi{font-size:calc(1rem*var(--hist-scale));padding:4px 6px}.hh .hp{font-size:calc(1.2rem*var(--hist-scale))}.hh{gap:6px}
+}
+/* Phones turned sideways: smaller racks, clocks and control buttons (both landscape layouts) */
+@media(orientation:landscape) and (max-height:559px){
+.side,.players{gap:5px}
+#toast{min-height:24px;font-size:.85rem;padding:0 8px}
+.panel{padding:5px 8px}.phead{margin-bottom:3px}
+.pname{font-size:.95rem}.ptime{font-size:1rem}.pscore{font-size:1.1rem}
+.rack{max-width:230px}
+.ctrls .btn{min-height:calc(34px*var(--btn-scale));font-size:calc(.8rem*var(--btn-scale));padding:2px 3px;border-radius:7px}
+}
+/* Settings (theme + sizes): bottom sheet so the board stays visible while adjusting */
+#ad{margin:auto auto max(8px,env(safe-area-inset-bottom));width:min(94vw,440px);max-height:72dvh;overflow:auto}
+#ad::backdrop{background:transparent}
+.setPanel{display:grid;gap:12px}
+.setH{margin:4px 0 0;font-size:1.05rem;color:var(--accent-text)}
+.dimList{display:grid;gap:8px}
+.rulesList{margin:0;padding-inline-start:1.2em;display:grid;gap:5px;font-size:.88rem;line-height:1.55;opacity:.92}
+.setRowHead{display:flex;align-items:center;gap:8px;font-weight:700}
+/* Theme selector: each option carries its own data-theme, so these variables resolve to THAT theme and the button previews it. */
+.thGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.thOpt{position:relative;display:grid;gap:8px;padding:10px;border-radius:10px;text-align:start;cursor:pointer;font-weight:700;font-size:1rem;
+background:var(--dialog-bg);color:var(--text-main);border:2px solid var(--dialog-line);transition:border-color .2s ease}
+.thName{display:flex;flex-direction:column;line-height:1.3}.thName small{direction:ltr;text-align:start;font-weight:400;font-size:.8rem}
+.thSw{display:flex;gap:4px;direction:ltr}.thSw i{flex:1;height:16px;border-radius:4px;border:1px solid var(--tile-edge)}
+.thSw i:nth-child(1){background:var(--board-1)}.thSw i:nth-child(2){background:var(--sq-empty)}.thSw i:nth-child(3){background:var(--premium-tw)}.thSw i:nth-child(4){background:var(--premium-dl)}.thSw i:nth-child(5){background:var(--tile-1)}
+/* Selected = solid ring + check, focused = dashed ring. The rings are fixed black/white (never theme variables, which here resolve to the option's own theme), so they stay visible whichever theme is active. */
+.thOpt[aria-pressed="true"]{outline:3px solid #000;outline-offset:2px;box-shadow:0 0 0 7px #fff}
+.thOpt[aria-pressed="true"]::after{content:"✓";position:absolute;top:6px;inset-inline-end:10px;font-size:1.1rem;line-height:1}
+.thOpt:focus-visible{outline:3px dashed #000;outline-offset:2px;box-shadow:0 0 0 7px #fff}
+/* ===== Layout preferences (js/layout.js sets data-layout / data-swap / data-hist on <html>) ===== */
+/* Word-log button: a normal member of the control palette (.ctrls). It only toggles the drawer, so it exists only in drawer mode. */
+/* Game Tools: a separate floating module that exists only in Floating Workspace (js/float.js moves the tool buttons into it and back).
+   Fullscreen is a tool of that module, so it is not shown in the structured default layout. */
+html:not([data-floating="true"]) #tools,html:not([data-floating="true"]) #bFs{display:none}
+#bFs[hidden]{display:none!important}
+html:not([data-hist="drawer"]) .ctrls #bLog{display:none}
+.ctrls #bLog[aria-expanded="true"]{outline:2px solid var(--accent);outline-offset:1px}
+.segRow{display:grid;gap:6px;padding:10px 12px;border-radius:10px;background:var(--surface-inset);border:1px solid var(--panel-line)}
+.seg{display:flex;gap:6px}.seg .btn{flex:1;min-height:40px}
+.seg .btn[aria-pressed="true"]{background:linear-gradient(var(--btn-main-1),var(--btn-main-2));color:var(--btn-main-text);outline:2px solid var(--accent);outline-offset:1px}
+.seg .btn[aria-pressed="true"]::before{content:"✓ "}
+/* Settings: player names, notes, fullscreen */
+.nmField{width:100%;min-height:42px;padding:6px 10px;font:700 1.05rem var(--font);color:var(--text-main);background:var(--dialog-bg);border:2px solid var(--dialog-line);border-radius:8px}
+.nmField::placeholder{color:var(--text-main);opacity:.5;font-weight:400}
+.nmField:focus-visible{outline:3px solid var(--focus);outline-offset:1px}
+.nmField[aria-invalid="true"]{border-color:var(--verdict-bad)}
+.setNote{margin:0;font-size:.9rem;line-height:1.5;opacity:.85}
+#fsSet{display:flex;align-items:center;justify-content:center;gap:.5em}#fsSet[hidden]{display:none}
+/* Word log as an on-demand drawer: out of the grid, slides in from the left edge, closed = invisible and unfocusable */
+html[data-hist="drawer"] .hist{position:fixed;inset-block:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-bottom));inset-inline-end:8px;z-index:30;
+width:min(92vw,400px);height:auto;align-self:auto;contain:none;box-shadow:0 12px 40px #000c;visibility:hidden;transform:translateX(-115%);transition:transform .25s ease,visibility .25s}
+html[data-hist="drawer"] .hist.open{visibility:visible;transform:none}
+/* The grid has no history column in drawer mode */
+html[data-hist="drawer"] .app{--hw:0px}
+/* Duel: player panels flank the board (player 1 left, player 2 right; data-swap flips them), buttons underneath.
+   Short landscape phones keep the classic layout, where a board with a button row below would be too small. */
+@media(min-height:560px),(orientation:portrait){
+html[data-layout="duel"] .app{max-width:min(1500px,100%);align-items:start;justify-content:center;grid-template-rows:none;grid-template-columns:repeat(2,minmax(0,1fr));
+grid-template-areas:"toast toast" "board board" "p2 p1" "ctrls ctrls" "hist hist"}
+html[data-layout="duel"][data-swap="true"] .app{grid-template-areas:"toast toast" "board board" "p1 p2" "ctrls ctrls" "hist hist"}
+html[data-layout="duel"][data-hist="drawer"] .app{grid-template-areas:"toast toast" "board board" "p2 p1" "ctrls ctrls"}
+html[data-layout="duel"][data-hist="drawer"][data-swap="true"] .app{grid-template-areas:"toast toast" "board board" "p1 p2" "ctrls ctrls"}
+html[data-layout="duel"] .side,html[data-layout="duel"] .players{display:contents}
+html[data-layout="duel"] #toast{grid-area:toast}html[data-layout="duel"] .boardWrap{grid-area:board;position:relative}
+html[data-layout="duel"] #pn0{grid-area:p1}html[data-layout="duel"] #pn1{grid-area:p2}
+html[data-layout="duel"] .ctrls{grid-area:ctrls}html[data-layout="duel"] .ctrls .wide{grid-column:auto}
+html[data-layout="duel"] .board{width:min(100%,calc(720px*var(--board-scale)));max-width:none}
+html[data-layout="duel"] .phead{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"n s" "t t"}
+html[data-layout="duel"]:not([data-hist="drawer"]) .hist{grid-area:hist;height:min(calc(260px*var(--hist-hs)),40dvh);contain:none}
+}
+/* Any landscape screen at least 700x560: panels | board | panels. --ov is the real vertical overhead (padding, message bar, bag row, two button rows,
+   gaps), so board + overhead always equals the viewport height and the page never needs scrolling; width is the other limit. */
+@media(orientation:landscape) and (min-width:700px) and (min-height:560px){
+html[data-layout="duel"] .app{--ov:calc(88px + var(--bagx) + 2*46px*var(--btn-scale) + var(--btn-gap));
+--bs:max(260px,min(calc((100dvh - var(--ov))*var(--board-scale)),calc(100vw - 460px),calc(880px*var(--board-scale))));
+grid-template-columns:minmax(0,1fr) var(--bs) minmax(0,1fr);
+grid-template-areas:". toast ." "p2 board p1" "p2 ctrls p1" "hist hist hist"}
+html[data-layout="duel"][data-swap="true"] .app{grid-template-areas:". toast ." "p1 board p2" "p1 ctrls p2" "hist hist hist"}
+html[data-layout="duel"][data-hist="drawer"] .app{grid-template-areas:". toast ." "p2 board p1" "p2 ctrls p1"}
+html[data-layout="duel"][data-hist="drawer"][data-swap="true"] .app{grid-template-areas:". toast ." "p1 board p2" "p1 ctrls p2"}
+html[data-layout="duel"] .board{width:var(--bs)}
+html[data-layout="duel"] .panel{align-self:end}
+html[data-layout="duel"][data-pdock="top"] .panel{align-self:start}
+html[data-layout="duel"][data-pdock="middle"] .panel{align-self:center}
+html[data-layout="duel"] .boardWrap{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:10px}
+html[data-layout="duel"] .board{grid-column:1/-1}
+html[data-layout="duel"] .bag{grid-column:1/-1;margin-top:6px}
+html[data-layout="duel"] #toast{min-height:32px}
+html[data-layout="duel"] .ctrls .btn{font-size:calc(clamp(.72rem,var(--bs)/36,1rem)*var(--btn-scale))}
+html[data-layout="duel"] .phead{grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"n t s"}
+html[data-layout="duel"] .ctrls{grid-template-columns:repeat(4,1fr)}
+}
+/* Control buttons: icon + label markup always present; data-bstyle decides what is shown */
+.ctrls .btn{display:flex;align-items:center;justify-content:center;gap:.4em;position:relative}
+.ic{width:1.2em;height:1.2em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ic.flip{transform:scaleX(-1)}
+html[data-bstyle="text"] .ctrls .ic{display:none}
+html[data-bstyle="icon"] .ctrls,html[data-bstyle="iconlabel"] .ctrls{grid-template-columns:repeat(auto-fit,minmax(calc(40px*var(--btn-scale)),1fr))}
+html[data-bstyle="icon"] .ctrls .wide,html[data-bstyle="iconlabel"] .ctrls .wide{grid-column:auto}
+html[data-bstyle="icon"] .ctrls .ic{width:1.5em;height:1.5em}
+/* the confirm button is one cell like every other button: no column span (it used to take two) */
+html[data-bstyle="icon"] .ctrls .btn:not(.main) .lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+html[data-bstyle="iconlabel"] .ctrls{grid-template-columns:repeat(auto-fit,minmax(calc(64px*var(--btn-scale)),1fr))}
+html[data-bstyle="iconlabel"] .ctrls .btn{flex-direction:column;gap:2px;line-height:1.1;padding-block:3px}
+html[data-bstyle="iconlabel"] .ctrls .lbl{font-size:.68em;font-weight:600}
+html[data-bstyle="iconlabel"] .ctrls .ic{width:1.35em;height:1.35em}
+@media(orientation:landscape) and (min-width:700px) and (min-height:560px){
+html[data-layout="duel"][data-bstyle="icon"] .app{--ov:calc(88px + var(--bagx) + 46px*var(--btn-scale) + var(--btn-gap))}
+}
+/* Floating windows (js/float.js): settings + word-log drawer share one look and one behaviour */
+#ad{position:fixed;inset:auto;margin:0;max-width:calc(100vw - 16px);max-height:min(72dvh,calc(100dvh - 16px));box-shadow:0 12px 40px #000c}
+html[data-hist="drawer"] .hist{inset:auto;width:min(calc(100vw - 16px),380px);height:min(70dvh,calc(560px*var(--hist-hs)),calc(100dvh - 16px))}
+.floatHandle{user-select:none}
+#ad .floatHandle,html[data-hist="drawer"] .hist .floatHandle{position:relative;cursor:grab;touch-action:none;padding-inline-start:1.4em;border-radius:6px}
+#ad .floatHandle::before,html[data-hist="drawer"] .hist .floatHandle::before{content:"⠿";position:absolute;inset-inline-start:0;opacity:.55}
+#ad .floatHandle:active,html[data-hist="drawer"] .hist .floatHandle:active{cursor:grabbing}
+.floatHandle:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+/* Settings title bar: sticky so the ✕ stays reachable while the panel scrolls */
+.fHead{position:sticky;top:-18px;z-index:2;display:flex;align-items:center;gap:8px;margin:-18px -18px 8px;padding:12px 18px 6px;background:var(--dialog-bg);border-radius:12px 12px 0 0}
+.fHead h2{flex:1;margin:0}
+.fClose{flex:none;width:36px;min-height:36px;height:36px;padding:0;border-radius:50%}
+.fClose .ic{width:1.3em;height:1.3em}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}
+/* ...except the touch feedback: the picked tile's flicker is a 1 Hz colour pulse with no movement (under WCAG's 3 flashes/s limit) and it is feedback, not decoration.
+   Without this the flicker silently vanished on every device with "reduce motion" on (Windows: animation effects off), leaving a static glow. */
+.tile.pick{animation:blink 1s ease-in-out infinite!important}}
+/* With reduced motion the word flash is not a sequence: the scored words are simply held highlighted for a moment (js/flash.js removes the class). */
+@media(prefers-reduced-motion:reduce){.sq.wf::after{opacity:.9!important}}

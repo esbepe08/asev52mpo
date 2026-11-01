@@ -1,0 +1,5 @@
+{
+  "buildCommand": "node tools/write-env.mjs && node tools/stamp-sw.mjs",
+  "outputDirectory": ".",
+  "framework": null
+}

@@ -1,0 +1,38 @@
+/* PWA additions: install suggestion on the cover, update bar, iOS install guide, Settings entry, standalone-mode touch hardening.
+   Colours come from the theme tokens (the cover itself is always dark, so the suggestion there uses fixed dark-scene colours). */
+
+/* Standalone / touch behaviour: no pull-to-refresh or rubber-banding mid-game, no long-press callouts on tiles and buttons.
+   Tap-to-select (and native drag on desktop) is unchanged; text inputs and the scrollable lists keep normal scrolling. */
+html,body{overscroll-behavior-y:none}
+.sq,.slot,.tile,.btn{-webkit-touch-callout:none}
+.hl,#jB,#bf,#ad,.hist{overscroll-behavior:contain}
+
+/* Install suggestion, bottom of the cover. Quiet: one line of text, one action, one dismiss. */
+.pwaBar{position:absolute;z-index:2;inset-inline:12px;bottom:max(12px,env(safe-area-inset-bottom));margin-inline:auto;max-width:520px;
+display:flex;align-items:center;gap:8px;padding:8px 10px 8px 12px;border-radius:12px;color:#f6ecd2;
+background:#140b05e6;border:1px solid #d4af3766;box-shadow:0 8px 24px #0009;animation:fadeIn .5s ease 1.1s backwards}
+.pwaBar[hidden],.pwaUpdate[hidden]{display:none}
+.pwaBar p{flex:1;margin:0;font-size:.95rem;line-height:1.5}
+.pwaBar .btn,.pwaUpdate .btn{flex:none;min-height:40px;padding-inline:14px}
+.pwaX{width:40px;padding:0!important;border-radius:50%}
+.pwaX .ic{width:1.2em;height:1.2em}
+@media(max-width:420px){.pwaBar{flex-wrap:wrap}.pwaBar p{flex-basis:100%}.pwaBar .main{flex:1}}
+
+/* New version available (above everything except open dialogs) */
+.pwaUpdate{position:fixed;z-index:70;inset-inline:12px;bottom:max(12px,env(safe-area-inset-bottom));margin-inline:auto;max-width:520px;
+display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:var(--dialog-bg);color:var(--text-main);
+border:2px solid var(--dialog-line);box-shadow:0 10px 30px #000b}
+.pwaUpdate p{flex:1;margin:0;font-size:.95rem;line-height:1.5}
+@media(max-width:420px){.pwaUpdate{flex-wrap:wrap}.pwaUpdate p{flex-basis:100%}.pwaUpdate .btn{flex:1}}
+
+/* iOS guide */
+.pwaSteps{margin:0 0 12px;padding-inline-start:1.5em;display:grid;gap:8px;line-height:1.7}
+.pwaNote{font-size:.9rem;opacity:.85;margin-bottom:0}
+/* English UI terms inside Arabic text: one isolated, unbreakable left-to-right unit, so brackets and word order survive line wrapping */
+.en{direction:ltr;unicode-bidi:isolate;white-space:nowrap}
+#pd{max-height:90dvh;overflow:auto}
+
+/* Settings entry */
+.pwaBox{display:grid;gap:8px;padding:10px 12px;border-radius:10px;background:var(--surface-inset);border:1px solid var(--panel-line)}
+.pwaStatus{margin:0;font-size:.95rem;line-height:1.6}
+.pwaStatus:empty{display:none}

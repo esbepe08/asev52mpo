@@ -1,0 +1,17 @@
+{
+  "name": "Arabic Scrabble — Integrated Version",
+  "short_name": "Arabic Scrabble",
+  "description": "لعبة سكرابل عربية لشخصين على جهاز واحد. Two-player local Arabic Scrabble.",
+  "lang": "ar",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#24150c",
+  "theme_color": "#2b1a10",
+  "categories": ["games"],
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

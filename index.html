@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="classic">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Arabic Scrabble — Integrated Version</title>
+<meta name="description" content="لعبة سكرابل عربية لشخصين على جهاز واحد. Two-player local Arabic Scrabble.">
+<!-- PWA. All URLs are relative, so the game works at a domain root and under a sub-path such as /repo/. theme-color is kept in step with the chosen theme by js/pwa.js. -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2b1a10">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<!-- Two names for one thing on purpose: Chromium wants mobile-web-app-capable; iOS before 16.4 only honours the apple- one (newer iOS reads the manifest). -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Arabic Scrabble">
+<!-- "black" (opaque bar, page starts below it): legible with every theme, including the light Desert one, unlike black-translucent. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<!-- Pre-paint: reuse the saved theme id so there is no flash of the default theme. An unknown id simply matches no theme block, i.e. classic. themes.js validates it again at startup. -->
+<script>try{var t=localStorage.getItem('scrabble.theme');if(t)document.documentElement.dataset.theme=t}catch(e){}
+try{var d=document.documentElement.dataset;d.hist='drawer';var l=JSON.parse(localStorage.getItem('scrabble.layout'))||{};d.bstyle=/^(iconlabel|text)$/.test(l.bstyle)?l.bstyle:'icon';d.pdock=/^(top|middle)$/.test(l.pdock)?l.pdock:'bottom';if(l.layout==='duel'){d.layout='duel';if(l.p1==='right')d.swap='true'}if(l.hist==='docked')d.hist='docked';d.binfo=l.binfo==='on'?'on':'off'}catch(e){}</script>
+<link rel="stylesheet" href="css/themes.css">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/float.css">
+<link rel="stylesheet" href="css/cover.css">
+<link rel="stylesheet" href="css/pwa.css">
+<link rel="stylesheet" href="css/online.css">
+</head>
+<body>
+<main class="app">
+<section class="boardWrap">
+<div id="board" class="board" role="grid" aria-label="لوح اللعب"></div>
+<div id="bagInfo" class="bag"></div>
+</section>
+<section class="side">
+<div id="netBar" class="netBar" hidden role="group" aria-label="حالة المباراة عبر الإنترنت"><span id="netGrip" class="netGrip" aria-label="تحريك الشريط"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"/></svg></span><span id="netDot" class="netDot" aria-hidden="true"></span><span id="netState" class="netState" role="status" aria-live="polite"></span><button type="button" class="btn netIcon" id="netLive" hidden aria-pressed="false" aria-label="القطع المباشرة"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button><button type="button" class="btn" id="netPause" hidden></button><button type="button" class="btn" id="netClaim" hidden disabled></button><button type="button" class="btn yes" id="netRematch" hidden>إعادة المباراة</button><button type="button" class="btn danger" id="netLeave">استسلام</button></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div class="players" id="players"></div>
+<div class="ctrls">
+<button class="btn main" id="bSubmit" aria-label="احتساب"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="lbl">احتساب</span></button>
+<button class="btn" id="bCancel"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9l6 6M15 9l-6 6"/></svg><span class="lbl">إلغاء الحركة</span></button>
+<button class="btn" id="bSwap"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4"/></svg><span class="lbl">تبديل القطع</span><span class="bagBadge" id="bagBadge" aria-hidden="true"></span><span class="vh" id="bagSr"></span></button>
+<button class="btn" id="bPass"><svg class="ic flip" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l9 7-9 7zM18 5v14"/></svg><span class="lbl">تمرير الدور</span></button>
+<button class="btn" id="bPause"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg><span class="lbl">إيقاف مؤقت</span></button>
+<button class="btn" id="bUndo"><svg class="ic flip" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3"/></svg><span class="lbl">تراجع</span></button>
+<button class="btn danger" id="bNew"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="lbl">لعبة جديدة</span></button>
+<button class="btn wide" id="bJudge"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M7 20h10M5 8h14M5 8l-3 7a3 3 0 006 0zM19 8l-3 7a3 3 0 006 0z"/></svg><span class="lbl">تحكيم</span></button>
+<button type="button" class="btn wide" id="bLog" aria-controls="hist" aria-expanded="false" aria-label="سجل الكلمات" title="سجل الكلمات"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h12M4 12h12M4 18h12M20 6h.01M20 12h.01M20 18h.01"/></svg><span class="lbl">سجل الكلمات</span></button>
+<button type="button" class="btn wide" id="bFs" aria-pressed="false" aria-label="ملء الشاشة" title="ملء الشاشة"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="lbl">ملء الشاشة</span></button>
+<button class="btn wide" id="bSettings"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg><span class="lbl">الإعدادات</span></button>
+</div>
+<div class="tools" id="tools" role="group" aria-label="أدوات اللعبة"></div>
+</section>
+<aside class="hist" id="hist" aria-label="سجل الكلمات"><button type="button" class="histToggle" id="hToggle" aria-controls="hList" aria-expanded="true">إخفاء السجل</button><h2>سجل الكلمات</h2><p class="hbag" id="hBag"></p><ol class="hl" id="hList"></ol><p class="hbest" id="hBest"></p></aside>
+</main>
+<div id="undoReq" class="undoReq" hidden role="alertdialog" aria-live="assertive" aria-labelledby="urT" aria-describedby="urM">
+<div class="urCard">
+<p class="urKick">طلب تراجع</p>
+<h2 id="urT"><bdi id="urName"></bdi> يطلب التراجع</h2>
+<p id="urM" class="urM"></p>
+<div class="urRow"><button type="button" class="btn yes" id="urYes">✔ موافقة</button><button type="button" class="btn danger" id="urNo">✖ رفض</button></div>
+</div>
+</div>
+<section id="pauseOv" class="pauseOv" hidden role="alertdialog" aria-modal="true" aria-labelledby="pauseT" aria-describedby="pauseM">
+<div class="pauseCard">
+<div class="pauseGlyph" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1.6"/><rect x="14" y="4" width="4" height="16" rx="1.6"/></svg></div>
+<p class="pauseKick">إيقاف مؤقت</p>
+<h2 id="pauseT">اللعبة متوقفة مؤقتًا</h2>
+<p id="pauseM" class="pauseM"></p>
+<p id="pauseClock" class="pauseClock"></p>
+<button type="button" class="btn main pauseBtn" id="pauseResume">استئناف اللعبة</button>
+<p id="pauseHint" class="pauseHint"></p>
+</div>
+</section>
+<section id="drawOv" class="drawOv" hidden aria-labelledby="drawT">
+<div class="drawCard">
+<p class="drawKick">سحب البداية</p>
+<h2 id="drawT">من يبدأ؟</h2>
+<p id="drawM" class="drawM"></p>
+<div class="drawSeats" id="drawSeats"></div>
+<p id="drawResult" class="drawResult" role="status" aria-live="polite"></p>
+<p id="drawHint" class="drawHint"></p>
+</div>
+</section>
+<dialog id="dlg" aria-labelledby="dT"><h2 id="dT" tabindex="-1" autofocus></h2><div id="dM"></div><form method="dialog" id="dF"></form></dialog>
+<dialog id="md" aria-labelledby="mT"><h2 id="mT" tabindex="-1" autofocus>اختر نمط الحروف</h2><form method="dialog" id="mf"></form><form method="dialog" class="dlgRow"><button class="btn" id="mCancel" value="">إلغاء</button></form></dialog>
+<dialog id="sd" aria-labelledby="sT"><h2 id="sT" tabindex="-1" autofocus>مدة اللعبة</h2><p>الوقت لكل لاعب — تبدأ الساعة بعد أول حركة.</p><form method="dialog" id="sf"></form><form method="dialog" class="dlgRow"><button class="btn" value="back">رجوع</button></form></dialog>
+<dialog id="bd" aria-labelledby="bT"><h2 id="bT" tabindex="-1" autofocus>اختر الحرف</h2><form method="dialog" id="bf"></form><form method="dialog" class="dlgRow"><button class="btn" value="">إلغاء</button></form></dialog>
+<dialog id="jd" aria-labelledby="jT"><h2 id="jT" tabindex="-1" autofocus></h2><div id="jB"></div></dialog>
+<dialog id="ad" aria-labelledby="aT">
+<div class="fHead"><h2 id="aT" tabindex="-1">الإعدادات</h2><button type="button" class="btn fClose" id="aClose" aria-label="إغلاق" title="إغلاق"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+<div class="setPanel">
+<h3 class="setH">المظهر</h3>
+<div class="thGrid" id="thB" role="group" aria-label="المظهر"></div>
+<h3 class="setH" id="nmH">اللاعبون</h3>
+<div class="dimList" id="nmB"></div>
+<h3 class="setH">التخطيط</h3>
+<div class="dimList" id="lyB"></div>
+<button class="btn" id="flReset" type="button">إعادة ضبط العناصر العائمة</button>
+<h3 class="setH">اللعب</h3>
+<div class="dimList" id="playB"></div>
+<div id="hpSec" hidden>
+<h3 class="setH">اللمس</h3>
+<div class="dimList" id="hpB"></div>
+</div>
+<h3 class="setH">نهاية اللعبة</h3>
+<ul class="rulesList" id="endRules">
+<li>تنتهي اللعبة بإحدى حالتين: ينتهي وقت أحد اللاعبين، أو يستخدم أحدهما كل قطعه بعد نفاد الكيس. الحركة التي لم تُرسَل عند انتهاء الوقت تُلغى.</li>
+<li>التمرير والتبديل غير محدودين ولا ينهيان اللعبة.</li>
+<li>النتيجة النهائية = مجموع النقاط + (الدقائق المتبقية × 2) − قيمة القطع المتبقية على الرف.</li>
+<li>تُقرَّب الدقائق إلى أقرب دقيقة، ونصف الدقيقة يُقرَّب للأسفل: ‎2:30 ← 2‎ و‎2:31 ← 3.</li>
+<li>صحة الكلمات يقررها اللاعبان بالتحكيم؛ لا يوجد قاموس. القواعد التي يُحتكم إليها في القسم التالي.</li>
+</ul>
+<h3 class="setH" id="wrH">قواعد الكلمات</h3>
+<div id="wrB" class="wrPanel"></div>
+<h3 class="setH">التطبيق</h3>
+<div class="pwaBox">
+<p id="pwaStatus" class="pwaStatus" role="status"></p>
+<button class="btn main" id="pwaInstall" type="button" hidden>تثبيت التطبيق</button>
+<p id="pwaHint" class="pwaStatus" hidden></p>
+<button type="button" class="btn" id="fsSet" aria-pressed="false" aria-label="ملء الشاشة" title="ملء الشاشة"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="lbl">ملء الشاشة</span></button>
+<a class="btn" id="pwaCheck" href="pwa-check.html">فحص التثبيت والاتصال</a>
+</div>
+</div>
+</dialog>
+<section id="cover" class="cover" aria-label="Arabic Scrabble Integrated Version" hidden>
+<div class="coverInner">
+<div id="coverTitle" class="coverTitle" role="img" aria-label="Arabic Scrabble"></div>
+<p class="coverSub">INTEGRATED VERSION</p>
+<button id="coverPlay" class="coverPlay" type="button">PLAY</button>
+<button id="coverOnline" class="coverOnline" type="button"><span>ONLINE</span><small>اللعب عبر الإنترنت</small></button>
+<p class="coverBy">by esbepe</p>
+</div>
+<div id="pwaBar" class="pwaBar" role="region" aria-label="تثبيت التطبيق" hidden>
+<p id="pwaBarText"></p>
+<button type="button" class="btn main" id="pwaBarGo"></button>
+<button type="button" class="btn pwaX" id="pwaBarX" aria-label="إخفاء الاقتراح" title="إخفاء الاقتراح"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</div>
+</section>
+<div id="pwaUpdate" class="pwaUpdate" role="status" hidden>
+<p>يتوفر إصدار أحدث من اللعبة. سيُحفظ تقدّم المباراة قبل التحديث.</p>
+<button type="button" class="btn main" id="pwaUpdateGo">تحديث الآن</button>
+<button type="button" class="btn" id="pwaUpdateLater">لاحقًا</button>
+</div>
+<dialog id="pd" aria-labelledby="pdT">
+<h2 id="pdT" tabindex="-1" autofocus>تثبيت اللعبة على <span class="en">iPhone</span> و<span class="en">iPad</span></h2>
+<ol class="pwaSteps">
+<li>افتح هذه الصفحة في <span class="en"><b>Safari</b></span>.</li>
+<li>اضغط زر <b>مشاركة</b> <span class="en">(Share)</span>: مربع يخرج منه سهم لأعلى. في <span class="en">iPhone</span> يكون في الشريط السفلي، وفي <span class="en">iPad</span> في أعلى الشاشة، وقد يظهر ضمن قائمة «⋯».</li>
+<li>مرّر القائمة واختر <b>إضافة إلى الشاشة الرئيسية</b> <span class="en">(Add to Home Screen)</span>. إن لم تظهر فاختر «عرض المزيد» <span class="en">(View More)</span> أولًا.</li>
+<li>إن ظهر خيار <b>فتح كتطبيق ويب</b> <span class="en">(Open as Web App)</span> فاتركه مفعّلًا لتُفتح اللعبة بملء الشاشة.</li>
+<li>اضغط <b>إضافة</b> <span class="en">(Add)</span>، ثم افتح اللعبة من الأيقونة الجديدة.</li>
+</ol>
+<p class="pwaNote">قد تختلف أسماء الخيارات قليلًا بحسب لغة النظام وإصداره. لا يعرض <span class="en">iOS</span> رسالة تثبيت تلقائية، والتطبيق المثبّت يحتفظ بإعدادات ومباراة محفوظة منفصلة عن <span class="en">Safari</span>. تعمل اللعبة دون إنترنت بعد تحميلها مرة واحدة بنجاح.</p>
+<form method="dialog" class="dlgRow"><button class="btn main" value="">حسنًا</button></form>
+</dialog>
+<section id="lobby" class="lobby" aria-label="اللعب عبر الإنترنت" hidden></section>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

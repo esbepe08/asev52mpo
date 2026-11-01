@@ -1,0 +1,92 @@
+/* Online play. Loaded with the game but inert for local play: every rule is either scoped to the online-only elements (#lobby, #netBar,
+   .tile.back, .pstat) or to html[data-online] (set by js/online/session.js while an online match is open). Colours come from the theme tokens. */
+
+/* ---------- cover: the second door ---------- */
+.coverOnline{display:inline-grid;gap:2px;justify-items:center;margin-top:12px;padding:.55em 1.8em;border-radius:999px;background:transparent;color:#f6ecd2;border:1.5px solid #d4af37;cursor:pointer;font:700 .85rem var(--font);letter-spacing:.2em;animation:fadeIn .5s ease .7s backwards}
+.coverOnline small{font-size:.8rem;letter-spacing:0;opacity:.85}
+.coverOnline:hover{background:#d4af3722}
+.coverOnline:focus-visible{outline:2px solid #f6ecd2;outline-offset:3px}
+.coverOnline[hidden]{display:none}
+
+/* ---------- lobby: full screen, above the cover ---------- */
+.lobby{position:fixed;inset:0;z-index:60;display:grid;place-items:center;overflow:auto;padding:max(14px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom));background:linear-gradient(var(--bg-page-1),var(--bg-page-2));color:var(--text-main)}
+.lobby[hidden]{display:none}
+.lbCard{width:min(560px,100%);display:grid;gap:14px;padding:clamp(16px,4vw,26px);border-radius:16px;background:var(--panel-bg);border:1px solid var(--panel-line);box-shadow:0 12px 40px #0007}
+.lbT{margin:0;font-size:1.35rem;color:var(--accent-text)}
+.lbCard h3{margin:0 0 6px;font-size:1rem}
+.lbLabel{display:block;margin-bottom:4px;font-size:.85rem;opacity:.85}
+.lbNote{margin:0;font-size:.9rem;opacity:.85;min-height:1.2em}.lbNote.bad{color:var(--time-crit,#ff8a8a);opacity:1}
+.lbInput{width:100%;box-sizing:border-box;padding:.65em .8em;font:inherit;font-size:1.05rem;color:var(--text-main);background:var(--surface-inset);border:1px solid var(--panel-line);border-radius:10px}
+.lbInput:focus{outline:2px solid var(--focus);outline-offset:1px}
+.lbCodeIn{text-align:center;letter-spacing:.25em;font-weight:700;text-transform:uppercase;margin-bottom:8px}
+.lbSplit{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.lbBox{display:grid;align-content:start;gap:6px;padding:12px;border-radius:12px;background:var(--surface-inset)}
+.lbFoot{display:flex;flex-wrap:wrap;gap:8px}.lbFoot .btn{flex:1 1 140px;min-height:44px}
+.lbRow{display:flex;flex-wrap:wrap;gap:8px}.lbRow .btn{flex:1 1 90px;min-height:44px}
+.lbOpt[aria-pressed="true"]{background:linear-gradient(var(--btn-main-1),var(--btn-main-2));color:var(--btn-main-text);outline:2px solid var(--accent);outline-offset:-2px}
+.lbCodeBox{display:grid;gap:8px;justify-items:center;text-align:center}
+.lbCodeBox .lbRow{justify-content:center;width:100%}.lbCodeBox .lbRow .btn{flex:0 1 180px}
+.lbCode{font-size:clamp(2rem,10vw,3rem);letter-spacing:.2em;padding-inline-start:.2em;color:var(--accent-text);font-family:var(--font)}
+.lbSeats{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.lbSeat{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;background:var(--surface-inset);border:1px solid transparent}
+.lbSeat.me{border-color:var(--accent)}.lbSeat.empty{opacity:.65;border:1px dashed var(--panel-line)}
+.lbTag{font-size:.8rem;padding:.2em .7em;border-radius:999px;background:var(--chip-bg);border:1px solid var(--chip-line)}
+.lbTag.ok{color:#8fe3a8}.lbTag.host{color:var(--accent-text)}
+.lbRules{display:grid;gap:10px}
+@media(max-width:480px){.lbSplit{grid-template-columns:1fr}}
+
+/* ---------- the match bar: ONE fixed-height row, so nothing around it ever moves ----------
+   Status line (ellipsis, never wraps) + dot + at most one contextual button (claim / rematch) + leave. Text and button changes can only change widths INSIDE the
+   row. In the Floating Workspace it is a movable module: drag the grip (double-click resets its spot); it is remembered per device like the other popups. */
+.netBar{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;box-sizing:border-box;height:42px;padding:0 8px;overflow:hidden;border-radius:10px;background:var(--panel-bg);border:1px solid var(--panel-line);font-size:.9rem;contain:layout paint}
+.netBar[hidden]{display:none}
+.netDot{flex:none;width:.6rem;height:.6rem;border-radius:50%;background:var(--panel-line)}.netDot.on{background:#6ee09a}.netDot.warn{background:var(--time-low,#e0a030)}
+.netState{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.netBar .btn{flex:none;height:30px;min-height:0;padding:0 .8em;font-size:.82rem;white-space:nowrap}
+.netBar .btn[hidden]{display:none}
+.netBar .netIcon{width:30px;padding:0}
+.netBar .netIcon .ic{width:1.15em;height:1.15em}
+.netBar .netIcon.on{color:var(--accent-text);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.netBar .netIcon.off{opacity:.55}
+.netGrip{display:none}
+html[data-floating="true"] #netBar{position:fixed;inset:auto;margin:0;z-index:40;width:min(calc(100vw - 16px),380px)}
+html[data-floating="true"] .netGrip{display:inline-grid;place-items:center;flex:none;width:28px;height:30px;cursor:grab;touch-action:none;border-radius:6px;opacity:.8;-webkit-user-select:none;user-select:none}
+.netGrip:hover,.netGrip:focus-visible{opacity:1}.netGrip:active{cursor:grabbing}
+.netGrip .ic{width:18px;height:18px;stroke-width:3;stroke-linecap:round}
+.pstat{grid-area:n;justify-self:end;align-self:center;font-size:.7rem;line-height:1}
+html[data-online] .pname{padding-inline-end:1.2em}   /* room for the presence dot at the end of the name cell */.pstat.on{color:#6ee09a}.pstat.off{color:var(--time-low,#e0a030)}
+.panel[data-you="true"] .pname bdi::after{content:" (أنت)";font-weight:400;font-size:.75em;opacity:.8}
+
+/* ---------- opponent's rack, last move ---------- */
+.tile.back{background:linear-gradient(145deg,var(--tile-cur-1,#a9803f),var(--tile-cur-2,#7a5726));box-shadow:inset 0 0 0 2px #0003;opacity:.9;cursor:default}
+.tile.back::after{content:"";position:absolute;inset:22%;border-radius:50%;border:2px solid #0003}
+.sq.lm:not(.wf)::after{content:"";position:absolute;inset-block-start:7%;inset-inline-start:7%;width:max(5px,1cqw);height:max(5px,1cqw);border-radius:50%;background:var(--accent);box-shadow:0 0 0 1px #0006;pointer-events:none;z-index:2}
+
+/* ---------- online mode: what only makes sense on one shared screen is out of the way ---------- */
+html[data-online] #bNew,html[data-online] #bPause,html[data-online] #nmH,html[data-online] #nmB{display:none}
+body.lobbyOn{overflow:hidden}
+@media(prefers-reduced-motion:reduce){.coverOnline{animation:none}}
+
+/* ---------- live preview: the opponent's tentative tiles, dashed, on empty squares only ---------- */
+.sq[data-ghost]::after{content:attr(data-ghost);position:absolute;inset:6%;display:grid;place-items:center;box-sizing:border-box;border:max(1px,.3cqw) dashed var(--accent);border-radius:12%;
+  background:color-mix(in srgb,var(--tile-1,#d9b66b) 55%,transparent);color:var(--tile-text,#2a1a0a);font-size:var(--lf);font-weight:700;line-height:1;opacity:.85;pointer-events:none;z-index:1}
+@media(prefers-reduced-motion:no-preference){.sq[data-ghost]::after{animation:ghostIn .12s ease-out}}
+@keyframes ghostIn{from{opacity:0;transform:scale(.85)}to{opacity:.85;transform:none}}
+
+/* ---------- pause: nothing to study while the clocks are stopped (the card itself is js/pause.js, css/style.css) ---------- */
+html[data-paused] .board,html[data-paused] .rack{opacity:.08;pointer-events:none;transition:opacity .2s}
+html[data-paused] .app{pointer-events:none}
+.board{position:relative}
+
+/* ---------- word rules (Settings, Tahkim dialog, waiting room) ---------- */
+.wr{display:grid;gap:8px;font-size:.92rem;line-height:1.6;text-align:start}
+.wrH{margin:6px 0 0;font-size:.95rem}.wrH.ok{color:#8fe3a8}.wrH.no{color:var(--time-crit,#ff8a8a)}
+.wrList{margin:0;padding:0;list-style:none;display:grid;gap:6px}.wrList.chk{list-style:decimal inside}
+.wrList li{display:grid;gap:1px;padding:6px 8px;border-radius:8px;background:var(--surface-inset)}
+.wrList.ok li{border-inline-start:3px solid #6ee09a}.wrList.no li{border-inline-start:3px solid var(--time-crit,#ff8a8a)}
+.wrId{font-size:.8rem;opacity:.75}.wrEx{display:inline-block;margin-inline:.3em;padding:0 .5em;border-radius:6px;background:var(--chip-bg);border:1px solid var(--chip-line);font-weight:700}
+.wrLead,.wrNote{margin:0;display:grid;gap:2px}
+.wrBox{margin:6px 0;border:1px solid var(--panel-line);border-radius:10px;padding:6px 10px}.wrBox>summary{cursor:pointer;font-weight:700;min-height:32px;display:flex;align-items:center}
+.wrBox[open]{max-height:50vh;overflow:auto}
+.wrPanel{max-height:46vh;overflow:auto}
+.lbNote.tech{font:.75rem ui-monospace,monospace;opacity:.7;word-break:break-all;direction:ltr;text-align:left}
