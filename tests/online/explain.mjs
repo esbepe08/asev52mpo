@@ -1,0 +1,32 @@
+import { makeWorld, suite } from './lib.mjs';
+import { explain } from '../../js/online/supabase-backend.js';
+const { ok, group, done } = suite('setup errors say what to fix');
+const code = (e, where) => explain(e, where).code;
+group('browser side: explain()');
+ok(code(new Error('x'), 'lib') === 'lib', 'supabase-js failed to load');
+ok(code(new TypeError('Failed to fetch dynamically imported module: https://cdn')) === 'lib', 'a failed dynamic import is the library, not "the network"');
+ok(code({ name: 'AuthApiError', code: 'anonymous_provider_disabled', message: 'Anonymous sign-ins are disabled', status: 422 }, 'auth') === 'anonymous_disabled', 'anonymous sign-ins are off');
+ok(/Allow anonymous/.test(explain({ message: 'Anonymous sign-ins are disabled' }, 'auth').text), 'and the text names the switch to flip');
+ok(code({ name: 'AuthApiError', message: 'Invalid API key', status: 401 }, 'auth') === 'bad_key', 'wrong anon key');
+ok(code({ name: 'AuthRetryableFetchError', message: 'Failed to fetch', status: 0 }, 'auth') === 'network' && /SUPABASE_URL/.test(explain({ name: 'AuthRetryableFetchError', message: 'Failed to fetch', status: 0 }, 'auth').text), 'unreachable project points at the URL / a paused project');
+const fn404 = { name: 'FunctionsHttpError', message: 'Edge Function returned a non-2xx status code', context: { status: 404 } };
+ok(code(fn404, 'fn') === 'fn_missing' && explain(fn404, 'fn').retry === false && /functions deploy eas-game/.test(explain(fn404, 'fn').text), 'function not deployed: no pointless retries, the command is shown');
+ok(code({ name: 'FunctionsFetchError', message: 'Failed to send a request to the Edge Function' }, 'fn') === 'network', 'function unreachable (network / CORS)');
+ok(code({ name: 'FunctionsHttpError', context: { status: 401 } }, 'fn') === 'fn_auth', 'function rejected the session');
+ok(code({ name: 'FunctionsHttpError', context: { status: 500 } }, 'fn') === 'fn_error', 'function crashed');
+ok(code(new Error('something odd')) === 'unknown' && explain(new Error('boom'), 'fn').detail.includes('boom'), 'anything else keeps its technical detail');
+ok(explain({ name: 'X', message: 'a'.repeat(500) }).detail.length <= 180, 'detail stays short');
+group('server side: missing migrations');
+{
+  const w = makeWorld();
+  const real = w.store.createGame.bind(w.store);
+  w.store.createGame = async () => { throw new Error('column "ext" of relation "games" does not exist'); };
+  const r = await w.raw('A', { action: 'create_room', nickname: 'x', settings: {} });
+  ok(!r.ok && r.code === 'DB_NOT_READY' && /migrations/.test(r.message), 'a missing column answers DB_NOT_READY with the fix, not a generic error');
+  w.store.createGame = async () => { throw new Error('Could not find the function public.commit_action in the schema cache'); };
+  ok((await w.raw('A', { action: 'create_room', nickname: 'x', settings: {} })).code === 'DB_NOT_READY', 'a missing function too');
+  w.store.createGame = async () => { throw new Error('connection reset'); };
+  ok((await w.raw('A', { action: 'create_room', nickname: 'x', settings: {} })).code === 'SERVER_ERROR', 'an unrelated failure stays a generic server error');
+  w.store.createGame = real;
+}
+done();

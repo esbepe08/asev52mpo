@@ -1,0 +1,17 @@
+{
+  "name": "arabic-scrabble-tests",
+  "private": true,
+  "type": "module",
+  "description": "Dev-only tests. The game itself has no dependencies and no build step.",
+  "scripts": {
+    "test": "node run-all.mjs",
+    "test:pwa": "node pwa/static.mjs && node pwa/e2e.mjs"
+  },
+  "devDependencies": {
+    "@sparticuz/chromium": "^153.0.0",
+    "jsdom": "^30.1.3",
+    "pngjs": "^7.0.0",
+    "puppeteer-core": "^25.14.0",
+    "playwright-core": "^1.56.0"
+  }
+}
